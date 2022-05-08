@@ -1,4 +1,5 @@
 apply plugin: "com.android.application"
+apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
 
 import com.android.build.OutputFile
 import org.apache.tools.ant.taskdefs.condition.Os
@@ -97,7 +98,7 @@ def enableSeparateBuildPerCPUArchitecture = false
 /**
  * Run Proguard to shrink the Java bytecode in release builds.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore.
@@ -132,14 +133,17 @@ def reactNativeArchitectures() {
 android {
     ndkVersion rootProject.ext.ndkVersion
 
+    flavorDimensions "default"
+
     compileSdkVersion rootProject.ext.compileSdkVersion
 
     defaultConfig {
         applicationId "com.newsapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode project.env.get("ANDROID_VERSION_CODE").toInteger()
+        versionName project.env.get("APP_VERSION")
+        resValue "string", "build_config_package", "com.newsapp"
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
 
         if (isNewArchitectureEnabled()) {
@@ -230,6 +234,22 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        stageRelease {
+            if (project.hasProperty('PROD_RELEASE_STORE_FILE')) {
+                storeFile rootProject.file("app/" + project.findProperty('PROD_RELEASE_STORE_FILE') ?: "ANDROID_STORE_FILE_NOT_SET")
+                storePassword project.findProperty('PROD_RELEASE_STORE_PASSWORD') ?: "ANDROID_STORE_PASSWORD_NOT_SET"
+                keyAlias project.findProperty('PROD_RELEASE_KEY_ALIAS') ?: "ANDROID_KEY_ALIAS_NOT_SET"
+                keyPassword project.findProperty('PROD_RELEASE_KEY_PASSWORD') ?: "ANDROID_KEY_PASSWORD_NOT_SET"
+            }
+        }
+        prodRelease {
+            if (project.hasProperty('PROD_RELEASE_STORE_FILE')) {
+                storeFile rootProject.file("app/" + project.findProperty('PROD_RELEASE_STORE_FILE') ?: "ANDROID_STORE_FILE_NOT_SET")
+                storePassword project.findProperty('PROD_RELEASE_STORE_PASSWORD') ?: "ANDROID_STORE_PASSWORD_NOT_SET"
+                keyAlias project.findProperty('PROD_RELEASE_KEY_ALIAS') ?: "ANDROID_KEY_ALIAS_NOT_SET"
+                keyPassword project.findProperty('PROD_RELEASE_KEY_PASSWORD') ?: "ANDROID_KEY_PASSWORD_NOT_SET"
+            }
+        }
     }
     buildTypes {
         debug {
@@ -238,7 +258,7 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
@@ -257,6 +277,34 @@ android {
                         defaultConfig.versionCode * 1000 + versionCodes.get(abi)
             }
 
+        }
+    }
+
+    productFlavors {
+        dev {
+            applicationId 'com.newsapp.dev'
+        }
+        stage {
+            applicationId 'com.newsapp.stage'
+            if (project.hasProperty('PROD_RELEASE_STORE_FILE')) {
+                signingConfig signingConfigs.stageRelease
+            } else {
+                println '-----------------------------------------------------------'
+                println 'The PROD_RELEASE_STORE_FILE property was not set!'
+                println 'This release will not be signed by gradle!'
+                println '-----------------------------------------------------------'
+            }
+        }
+        prod {
+            applicationId 'com.newsapp'
+            if (project.hasProperty('PROD_RELEASE_STORE_FILE')) {
+                signingConfig signingConfigs.prodRelease
+            } else {
+                println '-----------------------------------------------------------'
+                println 'The PROD_RELEASE_STORE_FILE property was not set!'
+                println 'This release will not be signed by gradle!'
+                println '-----------------------------------------------------------'
+            }
         }
     }
 }
